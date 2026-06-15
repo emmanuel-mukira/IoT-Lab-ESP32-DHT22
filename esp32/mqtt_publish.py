@@ -1,43 +1,50 @@
 from umqtt.simple import MQTTClient
-import dht
-import machine
-import time
-import ujson
+from machine import unique_id
+from ubinascii import hexlify
 
-from wifi import connect_wifi
+# =========================================================
+# MQTT Configuration
+# =========================================================
 
-DHT_PIN = 4
-
-BROKER = "YOUR_LAPTOP_IP"
+# Public MQTT broker used for the lab.
+BROKER = "broker.hivemq.com"
 PORT = 1883
-TOPIC = b"iot/lab/sensor"
-CLIENT_ID = "esp32_dht22_client"
 
-sensor = dht.DHT22(machine.Pin(DHT_PIN))
+# Unique topic for our group.
+TOPIC = b"iot/lab/group2"
 
-connect_wifi()
+# Unique client ID prevents conflict with other ESP32 devices.
+CLIENT_ID = b"esp32-dht22-" + hexlify(unique_id())
 
-client = MQTTClient(CLIENT_ID, BROKER, port=PORT)
-client.connect()
 
-print("Connected to MQTT broker")
+def connect_mqtt():
+    """
+    Connect the ESP32 to the MQTT broker.
+    Returns the connected MQTT client.
+    """
 
-while True:
-    try:
-        sensor.measure()
+    print("Connecting to MQTT broker:", BROKER)
+    print("Client ID:", CLIENT_ID.decode())
 
-        payload = {
-            "temperature": sensor.temperature(),
-            "humidity": sensor.humidity()
-        }
+    client = MQTTClient(
+        client_id=CLIENT_ID,
+        server=BROKER,
+        port=PORT,
+        keepalive=60
+    )
 
-        message = ujson.dumps(payload)
+    client.connect()
 
-        client.publish(TOPIC, message)
+    print("MQTT connected successfully")
+    print("Publishing to topic:", TOPIC.decode())
 
-        print("Published:", message)
+    return client
 
-    except Exception as e:
-        print("Error:", e)
 
-    time.sleep(5)
+def publish_sensor_data(client, payload):
+    """
+    Publish a JSON payload to the MQTT topic.
+    """
+
+    client.publish(TOPIC, payload)
+    print("Published:", payload)
